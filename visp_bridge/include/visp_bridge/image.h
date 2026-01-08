@@ -51,19 +51,44 @@
 
 namespace visp_bridge
 {
-/*!
-  \brief Converts a ViSP image (vpImage) to a sensor_msgs::Image. Only works for grayscale images
-  \param[in] src Image in ViSP format.
-  \return Image in ROS/sensor_msgs format.
+/**
+ * \brief Converts a ViSP image (vpImage) to a sensor_msgs::Image.
+ * \param[in] src Image in ViSP format.
+ * \return Image in ROS/sensor_msgs format.
 */
 sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<unsigned char> &src);
-sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<vpRGBa> &src);
-/*!
-  \brief Converts a sensor_msgs::Image to a ViSP image (vpImage). Only works for grayscale images
-  \param[in] src Image in ROS/sensor_msgs format.
-  \return Image in ViSP format.
+/**
+ * \brief Converts a ViSP image (vpImage) to a sensor_msgs::Image.
+ * \param[in] src Image in ViSP format.
+ * \return Image in ROS/sensor_msgs format.
 */
-vpImage<unsigned char> toVispImage(const sensor_msgs::msg::Image &src);
+sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<uint16_t> &src);
+/**
+ * \brief Converts a ViSP image (vpImage) to a sensor_msgs::Image.
+ * \param[in] src Image in ViSP format.
+ * \return Image in ROS/sensor_msgs format.
+*/
+sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<vpRGBa> &src);
+
+/**
+ * \brief Converts a sensor_msgs::Image to a ViSP image (vpImage).
+ * \param[in] src Image in ROS/sensor_msgs format.
+ * \return Image in ViSP format.
+*/
+vpImage<unsigned char> toVispImageChar(const sensor_msgs::msg::Image &src);
+
+/**
+ * \brief Converts a sensor_msgs::Image to a ViSP image (vpImage).
+ * \param[in] src Image in ROS/sensor_msgs format.
+ * \return vpImage<uint16_t> The ViSP image, encoded using uint16_t
+ */
+vpImage<uint16_t> toVispImageUint16(const sensor_msgs::msg::Image &src);
+
+/**
+ * \brief Converts a sensor_msgs::Image to a ViSP image (vpImage).
+ * \param[in] src Image in ROS/sensor_msgs format.
+ * \return vpImage<vpRGBa> The ViSP color image.
+ */
 vpImage<vpRGBa> toVispImageRGBa(const sensor_msgs::msg::Image &src);
 } // namespace visp_bridge
 

@@ -47,6 +47,12 @@
 #include <sensor_msgs/msg/image.hpp>
 
 #include "visp_bridge/image.h"
+#include <visp3/core/vpException.h>
+
+#include <visp3/core/vpConfig.h>
+#ifdef VISP_HAVE_OPENMP
+#include <omp.h>
+#endif
 
 namespace visp_bridge
 {
@@ -63,62 +69,16 @@ sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<unsigned char> &src)
   return dst;
 }
 
-vpImage<unsigned char> toVispImage(const sensor_msgs::msg::Image &src)
+sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<uint16_t> &src)
 {
-  using sensor_msgs::image_encodings::BGR8;
-  using sensor_msgs::image_encodings::BGRA8;
-  using sensor_msgs::image_encodings::MONO8;
-  using sensor_msgs::image_encodings::RGB8;
-  using sensor_msgs::image_encodings::RGBA8;
+  sensor_msgs::msg::Image dst;
+  dst.width = src.getWidth();
+  dst.height = src.getHeight();
+  dst.encoding = sensor_msgs::image_encodings::MONO16;
+  dst.step = src.getWidth() * sizeof(uint16_t);
+  dst.data.resize(dst.height * dst.step);
+  memcpy(&dst.data[0], src.bitmap, dst.height * dst.step);
 
-  vpImage<unsigned char> dst(src.height, src.width);
-
-  if (src.encoding == sensor_msgs::image_encodings::MONO8)
-    memcpy(dst.bitmap, &(src.data[0]), dst.getHeight() * src.step * sizeof(unsigned char));
-  else if (src.encoding == sensor_msgs::image_encodings::RGB8 || src.encoding == RGBA8 ||
-           src.encoding == sensor_msgs::image_encodings::BGR8 || src.encoding == sensor_msgs::image_encodings::BGRA8) {
-    unsigned nc = sensor_msgs::image_encodings::numChannels(src.encoding);
-    unsigned cEnd = (src.encoding == RGBA8 || src.encoding == sensor_msgs::image_encodings::BGRA8) ? nc - 1 : nc;
-
-    for (unsigned i = 0; i < dst.getWidth(); ++i) {
-      for (unsigned j = 0; j < dst.getHeight(); ++j) {
-        int acc = 0;
-        for (unsigned c = 0; c < cEnd; ++c)
-          acc += src.data[j * src.step + i * nc + c];
-        dst[j][i] = acc / nc;
-      }
-    }
-  }
-  return dst;
-}
-
-vpImage<vpRGBa> toVispImageRGBa(const sensor_msgs::msg::Image &src)
-{
-  using sensor_msgs::image_encodings::BGR8;
-  using sensor_msgs::image_encodings::BGRA8;
-  using sensor_msgs::image_encodings::MONO8;
-  using sensor_msgs::image_encodings::RGB8;
-  using sensor_msgs::image_encodings::RGBA8;
-
-  vpImage<vpRGBa> dst(src.height, src.width);
-
-  if (src.encoding == sensor_msgs::image_encodings::MONO8)
-    for (unsigned i = 0; i < dst.getWidth(); ++i) {
-      for (unsigned j = 0; j < dst.getHeight(); ++j) {
-
-        dst[j][i] = vpRGBa(src.data[j * src.step + i], src.data[j * src.step + i], src.data[j * src.step + i]);
-      }
-    }
-  else {
-    unsigned nc = sensor_msgs::image_encodings::numChannels(src.encoding);
-
-    for (unsigned i = 0; i < dst.getWidth(); ++i) {
-      for (unsigned j = 0; j < dst.getHeight(); ++j) {
-        dst[j][i] = vpRGBa(src.data[j * src.step + i * nc + 0], src.data[j * src.step + i * nc + 1],
-                           src.data[j * src.step + i * nc + 2]);
-      }
-    }
-  }
   return dst;
 }
 
@@ -132,14 +92,205 @@ sensor_msgs::msg::Image toSensorMsgsImage(const vpImage<vpRGBa> &src)
   dst.step = src.getWidth() * nc;
 
   dst.data.resize(dst.height * dst.step);
-  for (unsigned i = 0; i < src.getWidth(); ++i) {
-    for (unsigned j = 0; j < src.getHeight(); ++j) {
+  int width = src.getWidth();
+  int size = src.getSize();
+  int idxstart = 0, idxstop = size;
+  int j(0), i(0);
+#ifdef VISP_HAVE_OPENMP
+  int iam, nt, ipoints, npoints(size);
+#pragma omp parallel default(shared) private(iam, nt, ipoints, idxstart, idxstop, j, i)
+  {
+    iam = omp_get_thread_num();
+    nt = omp_get_num_threads();
+    ipoints = npoints / nt;
+    // size of partition
+    idxstart = iam * ipoints; // starting array index
+    if (iam == nt-1) {
+      // last thread may do more
+      ipoints = npoints - idxstart;
+    }
+    idxstop = idxstart + ipoints;
+    j = idxstart % width;
+    i = idxstart / width;
+#endif
+    for (int idx = idxstart; idx < idxstop; ++idx) {
       dst.data[j * dst.step + i * nc + 0] = src.bitmap[j * src.getWidth() + i].R;
       dst.data[j * dst.step + i * nc + 1] = src.bitmap[j * src.getWidth() + i].G;
       dst.data[j * dst.step + i * nc + 2] = src.bitmap[j * src.getWidth() + i].B;
       // dst.data[j * dst.step + i * nc + 3] = src.bitmap[j * dst.step + i].A;
+      // Updating column index
+      ++j;
+      if (j == width) {
+        // Reached the end of a column, updating row index and resetting column index
+        j = 0;
+        ++i;
+      }
     }
+#ifdef VISP_HAVE_OPENMP
+  }
+#endif
+  return dst;
+}
+
+vpImage<unsigned char> toVispImageChar(const sensor_msgs::msg::Image &src)
+{
+  using sensor_msgs::image_encodings::BGR8;
+  using sensor_msgs::image_encodings::BGRA8;
+  using sensor_msgs::image_encodings::MONO8;
+  using sensor_msgs::image_encodings::RGB8;
+  using sensor_msgs::image_encodings::RGBA8;
+
+  vpImage<unsigned char> dst(src.height, src.width);
+
+  if (src.encoding == sensor_msgs::image_encodings::MONO8) {
+    memcpy(dst.bitmap, &(src.data[0]), dst.getHeight() * src.step * sizeof(unsigned char));
+  }
+  else if (src.encoding == sensor_msgs::image_encodings::RGB8 || src.encoding == RGBA8 ||
+           src.encoding == sensor_msgs::image_encodings::BGR8 || src.encoding == sensor_msgs::image_encodings::BGRA8) {
+    unsigned nc = sensor_msgs::image_encodings::numChannels(src.encoding);
+    unsigned cEnd = (src.encoding == RGBA8 || src.encoding == sensor_msgs::image_encodings::BGRA8) ? nc - 1 : nc;
+
+    int width = dst.getWidth();
+    int size = dst.getSize();
+    int idxstart = 0, idxstop = size;
+    int j(0), i(0);
+#ifdef VISP_HAVE_OPENMP
+    int iam, nt, ipoints, npoints(size);
+#pragma omp parallel default(shared) private(iam, nt, ipoints, idxstart, idxstop, j, i)
+    {
+      iam = omp_get_thread_num();
+      nt = omp_get_num_threads();
+      ipoints = npoints / nt;
+      // size of partition
+      idxstart = iam * ipoints; // starting array index
+      if (iam == nt-1) {
+        // last thread may do more
+        ipoints = npoints - idxstart;
+      }
+      idxstop = idxstart + ipoints;
+      j = idxstart % width;
+      i = idxstart / width;
+#endif
+      for (int idx = idxstart; idx < idxstop; ++idx) {
+        int acc = 0;
+        for (unsigned c = 0; c < cEnd; ++c) {
+          acc += src.data[j * src.step + i * nc + c];
+        }
+        dst.bitmap[idx] = acc / nc;
+        // Updating column index
+        ++j;
+        if (j == width) {
+          // Reached the end of a column, updating row index and resetting column index
+          j = 0;
+          ++i;
+        }
+      }
+#ifdef VISP_HAVE_OPENMP
+    }
+#endif
+  }
+  else {
+    throw(vpException(vpException::fatalError, "Format %s can be converted into vpImage<uchar>", src.encoding));
   }
   return dst;
 }
+
+vpImage<uint16_t> toVispImageUint16(const sensor_msgs::msg::Image &src)
+{
+  if ((src.encoding != sensor_msgs::image_encodings::MONO16) && (src.encoding != sensor_msgs::image_encodings::TYPE_16UC1)) {
+    throw(vpException(vpException::fatalError, "Only %s and %s can be converted into vpImage<uint16_t>", sensor_msgs::image_encodings::MONO16, sensor_msgs::image_encodings::TYPE_16UC1));
+  }
+  vpImage<uint16_t> Ivisp(src.height, src.width);
+  memcpy(Ivisp.bitmap, &(src.data[0]), src.height * src.width * sizeof(uint16_t));
+  return Ivisp;
+}
+
+vpImage<vpRGBa> toVispImageRGBa(const sensor_msgs::msg::Image &src)
+{
+  using sensor_msgs::image_encodings::BGR8;
+  using sensor_msgs::image_encodings::BGRA8;
+  using sensor_msgs::image_encodings::MONO8;
+  using sensor_msgs::image_encodings::RGB8;
+  using sensor_msgs::image_encodings::RGBA8;
+
+  vpImage<vpRGBa> dst(src.height, src.width);
+
+  if (src.encoding == sensor_msgs::image_encodings::MONO8) {
+    int width = dst.getWidth();
+    int size = dst.getSize();
+    int idxstart = 0, idxstop = size;
+    int j(0), i(0);
+#ifdef VISP_HAVE_OPENMP
+    int iam, nt, ipoints, npoints(size);
+#pragma omp parallel default(shared) private(iam, nt, ipoints, idxstart, idxstop, j, i)
+    {
+      iam = omp_get_thread_num();
+      nt = omp_get_num_threads();
+      ipoints = npoints / nt;
+      // size of partition
+      idxstart = iam * ipoints; // starting array index
+      if (iam == nt-1) {
+        // last thread may do more
+        ipoints = npoints - idxstart;
+      }
+      idxstop = idxstart + ipoints;
+      j = idxstart % width;
+      i = idxstart / width;
+#endif
+      for (int idx = idxstart; idx < idxstop; ++idx) {
+        dst.bitmap[idx] = vpRGBa(src.data[j * src.step + i], src.data[j * src.step + i], src.data[j * src.step + i]);
+        // Updating column index
+        ++j;
+        if (j == width) {
+          // Reached the end of a column, updating row index and resetting column index
+          j = 0;
+          ++i;
+        }
+      }
+#ifdef VISP_HAVE_OPENMP
+    }
+#endif
+  }
+  else {
+    unsigned nc = sensor_msgs::image_encodings::numChannels(src.encoding);
+
+    int width = dst.getWidth();
+    int size = dst.getSize();
+    int idxstart = 0, idxstop = size;
+    int j(0), i(0);
+#ifdef VISP_HAVE_OPENMP
+    int iam, nt, ipoints, npoints(size);
+#pragma omp parallel default(shared) private(iam, nt, ipoints, idxstart, idxstop, j, i)
+    {
+      iam = omp_get_thread_num();
+      nt = omp_get_num_threads();
+      ipoints = npoints / nt;
+      // size of partition
+      idxstart = iam * ipoints; // starting array index
+      if (iam == nt-1) {
+        // last thread may do more
+        ipoints = npoints - idxstart;
+      }
+      idxstop = idxstart + ipoints;
+      j = idxstart % width;
+      i = idxstart / width;
+#endif
+      for (int idx = idxstart; idx < idxstop; ++idx) {
+        dst.bitmap[idx] = vpRGBa(src.data[j * src.step + i * nc + 0], src.data[j * src.step + i * nc + 1],
+                           src.data[j * src.step + i * nc + 2]);
+        // Updating column index
+        ++j;
+        if (j == width) {
+          // Reached the end of a column, updating row index and resetting column index
+          j = 0;
+          ++i;
+        }
+      }
+#ifdef VISP_HAVE_OPENMP
+    }
+#endif
+  }
+  return dst;
+}
+
 } // namespace visp_bridge

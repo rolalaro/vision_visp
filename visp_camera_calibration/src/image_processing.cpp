@@ -64,7 +64,7 @@ namespace visp_camera_calibration
 {
 ImageProcessing::ImageProcessing(const rclcpp::NodeOptions &options)
   : Node("calibrator", options), queue_size_(1000), pause_image_(false), img_(480, 640, 128), cam_(600, 600, 0, 0),
-    is_initialized(false)
+  is_initialized(false)
 {
   // Setup ROS environment
 
@@ -73,7 +73,7 @@ ImageProcessing::ImageProcessing(const rclcpp::NodeOptions &options)
       std::bind(&ImageProcessing::rawImageCallback, this, std::placeholders::_1));
 
   calibrate_service_ =
-      this->create_client<visp_camera_calibration::srv::Calibrate>(visp_camera_calibration::calibrate_service);
+    this->create_client<visp_camera_calibration::srv::Calibrate>(visp_camera_calibration::calibrate_service);
 
   point_correspondence_publisher_ = this->create_publisher<visp_camera_calibration::msg::CalibPointArray>(
       visp_camera_calibration::point_correspondence_topic, queue_size_);
@@ -207,7 +207,7 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
   vpCalibration calib;
   visp_camera_calibration::msg::CalibPointArray calib_all_points;
 
-  img_ = visp_bridge::toVispImage(*image);
+  img_ = visp_bridge::toVispImageChar(*image);
 
   init();
 
@@ -221,7 +221,8 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
     vpDisplay::flush(img_);
     if (pause_image_) {
       pause_image_ = false;
-    } else {
+    }
+    else {
       return;
     }
   }
@@ -258,7 +259,8 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
 
       vpDisplay::displayCross(img_, d.getCog(), 10, vpColor::red);
       vpDisplay::flush(img_);
-    } catch (vpTrackingException const &) {
+    }
+    catch (vpTrackingException const &) {
       RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to init point");
     }
   }
@@ -300,8 +302,9 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
               bbox.getBottom() > (double)img_.getHeight() - 5 || vpMath::abs(ip.get_u() - cog.get_u()) > 10 ||
               vpMath::abs(ip.get_v() - cog.get_v()) > 10) {
             RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "tracking failed[suspicious point location].");
-          } else {
-            // point matches
+          }
+          else {
+         // point matches
             double x = 0, y = 0;
             vpPixelMeterConversion::convertPoint(camTmp, cog, x, y);
             model_point_iter->set_x(x);
@@ -321,10 +324,12 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
             loop_rate.sleep(); // To avoid refresh problems
             vpDisplay::flush(img_);
           }
-        } catch (...) {
+        }
+        catch (...) {
           RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "tracking failed.");
         }
-      } else {
+      }
+      else {
         RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "bad projection.");
       }
     }
@@ -343,12 +348,14 @@ void ImageProcessing::rawImageCallback(const sensor_msgs::msg::Image::SharedPtr 
     if (btn == vpMouseButton::button1) {
       point_correspondence_publisher_->publish(calib_all_points);
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "publish all points END");
-    } else {
+    }
+    else {
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Call rawImageCallback");
       rawImageCallback(image);
       return;
     }
-  } catch (...) {
+  }
+  catch (...) {
     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "calibration failed.");
   }
 }
