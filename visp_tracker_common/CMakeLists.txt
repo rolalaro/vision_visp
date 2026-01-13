@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(image_transport REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
@@ -96,6 +97,25 @@ ament_export_dependencies(
 # ##### #
 # Nodes #
 # ##### #
+
+add_executable(tracker_gui src/tracker_gui.cpp src/TrackerGUI.cpp)
+
+ament_target_dependencies(tracker_gui
+    ament_index_cpp
+    geometry_msgs
+    image_transport
+    rclcpp
+    sensor_msgs
+    std_srvs
+    visp_bridge
+    VISP
+  )
+
+target_link_libraries(tracker_gui
+  ${VISP_LIBRARIES}
+  ${PROJECT_NAME}_library
+  "${cpp_typesupport_target}"
+)
 
 # ###### #
 # Others #
