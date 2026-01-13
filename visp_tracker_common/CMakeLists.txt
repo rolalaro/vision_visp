@@ -12,6 +12,7 @@ find_package(message_filters REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
 # Find ViSP libraries and packages
@@ -40,17 +41,24 @@ ament_export_dependencies(rosidl_default_runtime)
 # ############
 # Libraries #
 # ############
-add_library(${PROJECT_NAME}_library src/names.cpp)
-rosidl_target_interfaces(${PROJECT_NAME}_library
-  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+add_library(${PROJECT_NAME}_library src/names.cpp src/BaseTracker.cpp src/BaseMultiModalTracker.cpp)
+# rosidl_target_interfaces(${PROJECT_NAME}_library
+#   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ament_target_dependencies(${PROJECT_NAME}_library
     ament_index_cpp
     geometry_msgs
     rclcpp
     sensor_msgs
+    std_srvs
+    visp_bridge
     VISP
   )
+
+target_include_directories(${PROJECT_NAME}_library
+  PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
 
 target_link_libraries(${PROJECT_NAME}_library
   ${VISP_LIBRARIES}
@@ -61,11 +69,6 @@ install(
   DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
 )
-
-target_include_directories(${PROJECT_NAME}_library
-  PUBLIC
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
 
 install(
   TARGETS ${PROJECT_NAME}_library
@@ -83,9 +86,11 @@ ament_export_dependencies(
   rclcpp
   rosidl_default_runtime
   sensor_msgs
+  std_srvs
   visualization_msgs
+  visp_bridge
   VISP
-  "${cpp_typesupport_target}"
+  # "${cpp_typesupport_target}"
 )
 
 # ##### #

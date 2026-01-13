@@ -15,6 +15,7 @@
   <depend>message_filters</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>vision_msgs</depend>
 
   <depend>visp_bridge</depend>
