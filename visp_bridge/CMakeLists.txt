@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(visp_bridge)
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -16,8 +16,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(camera_calibration_parsers REQUIRED)
 find_package(VISP REQUIRED COMPONENTS visp_core)
 
-# add library 
-add_library(${PROJECT_NAME} src/3dpose.cpp src/camera.cpp src/image.cpp src/path_retriever.cpp)
+# add library
+add_library(${PROJECT_NAME} src/3dpose.cpp src/camera.cpp src/image.cpp src/path_retriever.cpp src/qos.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}
   geometry_msgs

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
 project(visp_tracker_common)
 
+# Default to C++17
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -99,6 +104,9 @@ ament_export_dependencies(
 # ##### #
 
 add_executable(tracker_gui src/tracker_gui.cpp src/TrackerGUI.cpp)
+
+set_property(TARGET tracker_gui PROPERTY CXX_STANDARD_REQUIRED ON)
+set_property(TARGET tracker_gui PROPERTY CXX_STANDARD 17)
 
 ament_target_dependencies(tracker_gui
     ament_index_cpp
